@@ -26,7 +26,6 @@
 #include "stm32f4xx_it.h"
 #include "CustomDefines.h"
 
-
 /** @addtogroup STM32F4_Discovery_Peripheral_Examples
   * @{
   */
@@ -150,25 +149,11 @@ void SysTick_Handler(void)
 /*  file (startup_stm32f4xx.s).                                               */
 /******************************************************************************/
 
-/**
-  * @brief  This function handles PPP interrupt request.
-  * @param  None
-  * @retval None
-  */
-/*void PPP_IRQHandler(void)
-{
-}*/
 
-/**
-  * @}
-  */
-
-#define ThresVal   1024
-extern __IO uint8_t ADC3ConvertedValue[BUFFER_SIZE*2];
+extern __IO uint16_t ADC3ConvertedValues[];
 void DMA2_Stream0_IRQHandler(void)
 {
-	//if(DMA_GetITStatus(DMA2_Stream0, DMA_IT_TCIF0)==SET)
-//	{
+
 	    ADC_DMACmd(ADC3, DISABLE);
 	    ADC_Cmd(ADC3, DISABLE);
 		ADC_DMARequestAfterLastTransferCmd(ADC3, DISABLE);
@@ -178,46 +163,29 @@ void DMA2_Stream0_IRQHandler(void)
 		ADC_Cmd(ADC3, ENABLE);
 		ADC_SoftwareStartConv(ADC3);
 		while(ADC_GetSoftwareStartConvStatus(ADC3)==SET);
-	//	while((ADC3->DR)<ThresVal);
-		//while((ADC3->DR)>ThresVal+100);
-	//	while((ADC3->DR)>ThresVal+300);
-
 		ADC_DMARequestAfterLastTransferCmd(ADC3, ENABLE);
 		ADC_DMACmd(ADC3, ENABLE);
 
 		DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
-//	}
-}
 
-void USART1_IRQHandler(void)
-{
-	if(USART_GetITStatus(USART1, USART_IT_RXNE)==SET)
-	{
-	//	USART_SendData(USART1, USART1->DR);
-		USART_ClearITPendingBit(USART1, USART_IT_RXNE);
-	}
 }
 
 void SendBlock(void)
 {
 	uint16_t i;
-	//uint8_t *Data = (uint8_t *)ADC3ConvertedValue[0];
-//	uint16_t HighByte, LowByte;
-	for(i=24;i<BUFFER_SIZE*2;i++)
-	{
-	//	LowByte = (ADC3ConvertedValue[i]&0xFF);
-	//	HighByte = (ADC3ConvertedValue[i]>>8);
-	//	while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
-	//	USART_SendData(USART1, LowByte);
-	//	while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
-	//	USART_SendData(USART1, HighByte );
-		while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
-		USART_SendData(USART1, ADC3ConvertedValue[i]);
-	}
+	uint16_t HighByte, LowByte;
+	for(i=0;i<BUFFER_SIZE;i++)
+		{
+			LowByte= (ADC3ConvertedValues[i]&0xFF);
+			HighByte = (ADC3ConvertedValues[i]>>8);
+			while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
+			USART_SendData(USART1, LowByte);
+			while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
+			USART_SendData(USART1, HighByte );
+
+		}
 	while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
 	USART_SendData(USART1, (uint16_t)('\r'));
-	//
 	while(USART_GetFlagStatus(USART1, USART_FLAG_TXE)==RESET);
 	USART_SendData(USART1, (uint16_t)('\n'));
-	//while(USART_GetFlagStatus(USART1, USART_FLAG_TC)==RESET);
 }

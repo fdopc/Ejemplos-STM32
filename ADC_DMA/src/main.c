@@ -1,109 +1,36 @@
-
-
 /* Includes ------------------------------------------------------------------*/
 //#include "stm32f4_discovery.h"
+#include "stm32f4xx.h"
 #include "CustomDefines.h"
 #include "stm32f4xx_conf.h"
-#include "arm_math.h"
-#include "stm32f4_discovery_audio_codec.h"
-
-/** @addtogroup STM32F4_Discovery_Peripheral_Examples
-  * @{
-  */
-
-/** @addtogroup ADC_ADC3_DMA
-  * @{
-  */
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define ADC3_DR_ADDRESS    (uint32_t)(&(ADC3->DR))//((uint32_t)0x4001224C)
-//#define BufferSize			1
 
-/* Private macro -------------------------------------------------------------*/
+
 /* Private variables ---------------------------------------------------------*/
-__IO uint8_t ADC3ConvertedValue[BUFFER_SIZE*2];
-__IO uint8_t TCompleted=1;
+__IO uint16_t ADC3ConvertedValues[BUFFER_SIZE];
 
 /* Private function prototypes -----------------------------------------------*/
-/* Private functions ---------------------------------------------------------*/
 void ADC3_CH12_DMA_Config(void);
 void UART_Config(void);
-void TIM6_Config(void);
-void DAC_Ch2_SineWaveConfig(void);
-#define DAC_DHR12R2_ADDRESS    0x40007414
-#define DAC_DHR8R1_ADDRESS     0x40007410
 
-/* Private macro -------------------------------------------------------------*/
-/* Private variables ---------------------------------------------------------*/
-DAC_InitTypeDef  DAC_InitStructure;
-
-/**
-  * @brief  Main program
-  * @param  None
-  * @retval None
-  */
-uint16_t Sine12BitNew[512];
 int main(void)
 {
-	uint16_t i;
-	for(i=0;i<512;i++)
-	{
-		Sine12BitNew[i]=((arm_sin_q15((q15_t)(i<<6))))+2047;
-
-	}
-
-	  /* Preconfiguration before using DAC----------------------------------------*/
-	//  GPIO_InitTypeDef GPIO_InitStructure;
-
-	  /* DMA1 clock and GPIOA clock enable (to be used with DAC) */
-	 // RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1 | RCC_AHB1Periph_GPIOA, ENABLE);
-
-	  /* DAC Periph clock enable */
-	 // RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC, ENABLE);
-
-	  /* DAC channel 1 & 2 (DAC_OUT1 = PA.4)(DAC_OUT2 = PA.5) configuration */
-	 // GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4 | GPIO_Pin_5;
-	 // GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-	 // GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	 // GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-	  /* TIM6 Configuration ------------------------------------------------------*/
-	 // TIM6_Config();
-	//  DAC_DeInit();
-	//  DAC_Ch2_SineWaveConfig();
-	  /* Initialize I2S interface */
-	  EVAL_AUDIO_SetAudioInterface(AUDIO_INTERFACE_I2S);
-
-	  /* Initialize the Audio codec and all related peripherals (I2S, I2C, IOExpander, IOs...) */
-	  EVAL_AUDIO_Init(OUTPUT_DEVICE_HEADPHONE, 70, 44100 );
-	 // while(1){
-	//	  while(!TCompleted);
-		//  TCompleted=0;
-		  EVAL_AUDIO_Play((uint16_t *)&Sine12BitNew[0],512);
-	 // }
-
-//  UART_Config();
-  //ADC3_CH12_DMA_Config();
+  UART_Config();
+  ADC3_CH12_DMA_Config();
   /* Enable ADC3 */
- // ADC_Cmd(ADC3, ENABLE);
-
-
-  /* Start ADC3 Software Conversion */
- // ADC_SoftwareStartConv(ADC3);
-  while (1)
-  {
-
-  }
+  ADC_Cmd(ADC3, ENABLE);
+  /* Start ADC3 Conversion */
+  ADC_SoftwareStartConv(ADC3);
+  for(;;);
 }
 
-
-
-  /* @brief  ADC3 channel12 with DMA configuration*/
-
+/*Config ADC with DMA request*/
 void ADC3_CH12_DMA_Config(void)
 {
- /* ADC3 configuration *******************************************************/
+ /* Init Structures *******************************************************/
   ADC_InitTypeDef       ADC_InitStructure;
   ADC_CommonInitTypeDef ADC_CommonInitStructure;
   DMA_InitTypeDef       DMA_InitStructure;
@@ -117,7 +44,7 @@ void ADC3_CH12_DMA_Config(void)
   /* DMA2 Stream0 channel0 configuration **************************************/
   DMA_InitStructure.DMA_Channel = DMA_Channel_2;
   DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)ADC3_DR_ADDRESS;
-  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)(&ADC3ConvertedValue[0]);
+  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)(&ADC3ConvertedValues);
   DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
   DMA_InitStructure.DMA_BufferSize = BUFFER_SIZE;
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
@@ -143,9 +70,9 @@ void ADC3_CH12_DMA_Config(void)
 
   /* ADC Common Init **********************************************************/
   ADC_CommonInitStructure.ADC_Mode = ADC_Mode_Independent;
-  ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div8;
+  ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div2;
   ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
-  ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
+  ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;//don't care
   ADC_CommonInit(&ADC_CommonInitStructure);
 
   /* ADC3 Init ****************************************************************/
@@ -158,7 +85,7 @@ void ADC3_CH12_DMA_Config(void)
   ADC_Init(ADC3, &ADC_InitStructure);
 
   /* ADC3 regular channel12 configuration *************************************/
-  ADC_RegularChannelConfig(ADC3, ADC_Channel_12, 1, ADC_SampleTime_15Cycles);
+  ADC_RegularChannelConfig(ADC3, ADC_Channel_12, 1, ADC_SampleTime_3Cycles);
 
  /* Enable DMA request after last transfer (Single-ADC mode) */
   ADC_DMARequestAfterLastTransferCmd(ADC3, ENABLE);
@@ -174,15 +101,16 @@ void ADC3_CH12_DMA_Config(void)
   /* Enable ADC3 DMA */
   ADC_DMACmd(ADC3, ENABLE);
 }
+
+/*Config UART*/
 void UART_Config(void)
 {
 	USART_InitTypeDef	USART_InitStruct;
-	NVIC_InitTypeDef	NVIC_InitStruct;
 	GPIO_InitTypeDef	GPIO_InitStruct;
 
-	// Enable clock for GPIOA
+	// Enable clock for GPIOA and UART
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
 	/**
 	* Tell pins PA9 and PA10 which alternating function you will use
 	* @important Make sure, these lines are before pins configuration!
@@ -197,24 +125,7 @@ void UART_Config(void)
 	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-	/**
-	 * Enable clock for USART1 peripheral
-	 */
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-
-	/**
-	 * Set Baudrate to value you pass to function
-	 * Disable Hardware Flow control
-	 * Set Mode To TX and RX, so USART will work in full-duplex mode
-	 * Disable parity bit
-	 * Set 1 stop bit
-	 * Set Data bits to 8
-	 *
-	 * Initialize USART1
-	 * Activate USART1
-	 */
-	//USART_StructInit(USART_InitStruct);
-	//USART_InitStruct.USART_Mode = USART_Mode_Tx;
+	//USART Config
 	USART_InitStruct.USART_BaudRate = BAUDRATE;
 	USART_InitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
 	USART_InitStruct.USART_Mode = USART_Mode_Tx | USART_Mode_Rx;
@@ -228,124 +139,6 @@ void UART_Config(void)
 	 * Enable RX interrupt
 	 */
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
-
-	/**
-	 * Set Channel to USART1
-	 * Set Channel Cmd to enable. That will enable USART1 channel in NVIC
-	 * Set Both priorities to 0. This means high priority
-	 *
-	 * Initialize NVIC
-	 */
-	NVIC_InitStruct.NVIC_IRQChannel = USART1_IRQn;
-	NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 0;
-	NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
-	NVIC_Init(&NVIC_InitStruct);
-
-}
-void DAC_Ch2_SineWaveConfig(void)
-{
-  DMA_InitTypeDef DMA_InitStructure;
-
-  /* DAC channel2 Configuration */
-  DAC_InitStructure.DAC_Trigger = DAC_Trigger_T6_TRGO;
-  DAC_InitStructure.DAC_WaveGeneration = DAC_WaveGeneration_None;
-  DAC_InitStructure.DAC_OutputBuffer = DAC_OutputBuffer_Enable;
-  DAC_Init(DAC_Channel_2, &DAC_InitStructure);
-
-  /* DMA1_Stream5 channel7 configuration **************************************/
-  DMA_DeInit(DMA1_Stream5);
-  DMA_InitStructure.DMA_Channel = DMA_Channel_7;
-  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)DAC_DHR12R2_ADDRESS;
-  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)&Sine12BitNew;
-  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-  DMA_InitStructure.DMA_BufferSize = 256;
-  DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-  DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
-  DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
-  DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-  DMA_Init(DMA1_Stream6, &DMA_InitStructure);
-
-  /* Enable DMA1_Stream5 */
-  DMA_Cmd(DMA1_Stream6, ENABLE);
-
-  /* Enable DAC Channel2 */
-  DAC_Cmd(DAC_Channel_2, ENABLE);
-
-  /* Enable DMA for DAC Channel2 */
-  DAC_DMACmd(DAC_Channel_2, ENABLE);
-}
-void TIM6_Config(void)
-{
-  TIM_TimeBaseInitTypeDef    TIM_TimeBaseStructure;
-  /* TIM6 Periph clock enable */
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
-
-  /* Time base configuration */
-  TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-  TIM_TimeBaseStructure.TIM_Period = 0xA5;
-  TIM_TimeBaseStructure.TIM_Prescaler = 0;
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure);
-
-  /* TIM6 TRGO selection */
-  TIM_SelectOutputTrigger(TIM6, TIM_TRGOSource_Update);
-
-  /* TIM6 enable counter */
-  TIM_Cmd(TIM6, ENABLE);
 }
 
-void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size){
-	TCompleted=1;
-}
-uint16_t EVAL_AUDIO_GetSampleCallBack(void){
-	return 0;
-}
-
-
-/* This function is called when half of the requested buffer has been transferred
-   This callback is useful in Circular mode only (when AUDIO_MAL_MODE_CIRCULAR
-   define is enabled)*/
-void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size){
-
-}
-
-/* This function is called when an Interrupt due to transfer error on or peripheral
-   error occurs. */
-void EVAL_AUDIO_Error_CallBack(void* pData){
-
-}
-
-/* Codec_TIMEOUT_UserCallback() function is called whenever a timeout condition
-   occurs during communication (waiting on an event that doesn't occur, bus
-   errors, busy devices ...) on the Codec control interface (I2C).
-   You can use the default timeout callback implementation by uncommenting the
-   define USE_DEFAULT_TIMEOUT_CALLBACK in stm32f4_discovery_audio_codec.h file.
-   Typically the user implementation of this callback should reset I2C peripheral
-   and re-initialize communication or in worst case reset all the application. */
-uint32_t Codec_TIMEOUT_UserCallback(void){
-return 0;
-}
-
-
-
-#ifdef  USE_FULL_ASSERT
-void assert_failed(uint8_t* file, uint32_t line)
-{
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-
-  /* Infinite loop */
-  while (1)
-  {
-  }
-}
-#endif
 
